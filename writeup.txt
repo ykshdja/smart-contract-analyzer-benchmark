@@ -1,0 +1,114 @@
+
+Email -  1
+Create a tool to find vulnerabilities  in 
+Ethereum smart contracts 
+use Slither for it 
+read the research paper
+-----------------------------------------------------------------------------------
+Ethereum apps use smart contracts written in solidity
+These contracts can have bugs that can cause -
+-money theft
+-locked funds 
+-logic exploits
+
+why Slither is a static analysis tool
+- reads solidity code
+- detects vulnerabilities
+- flags dangerous patterns 
+-----------------------------------------------------------------------------------
+what is a Smart contract?
+Program stored and executed on a blockchain that enforces agreemnents
+automatically.
+
+Smart Contract is essentially an agreement.
+- written in solidity
+- enforces automatically
+- trustless and transparent
+
+#Contract is deployed on the blockchain
+# user will intercat with it
+
+
+WHAT HAPPENS WHEN YOU CALL A SMART Contract
+
+- you call Withdraw()
+
+1. Transaction Sent 
+2. validatore receives it  (Network node)
+3. Contract code executed 
+4. Result verified and Block Added.
+
+Ethereum uses Proof of Stake
+
+Validators must 
+- Stake ETH(Lock funds)
+
+-----------------------------------------------------------------------------------
+1. what is a Transaction
+- It is a message that changes blockchain state.
+
+2. types of Transaction?
+- ETH transfer (To another wallet)
+- contract interaction
+-- withdraw
+-- swap tokens
+-contract deployment 
+--upload new smart contract
+
+A Transaction contains 
+- sender address
+recipient address
+amount of ETH
+function call data
+gas limit
+gas price
+digital signature
+-----------------------------------------------------------------------------------
+
+#TRANSAACTION LIFECYCLE 
+- user calls - withdraw(1 ETH)
+- user clicks  withdraw in wallet (MetaMask)
+- user signs Transaction (with private key)
+-- this proves ownership
+- Transaction sent to ETH Network
+-Validators verify
+- If Verified -> Transaction added to block
+- If Transaction calls a contract - Every validator executes the code.
+- Block chain is updated
+- Finalized Transaction becomes Immutable
+
+-----------------------------------------------------------------------------------
+
+Email - 2 
+- What we have done so far.
+1. Installed and ran slither 
+    report generated to report.json
+2. Extract that json and read it.
+3. understand smart contracts basics
+
+------------------------------------------------------------------------------
+1.Pick an existing labeled dataset (like SCRUBD or ScrawlD)
+2.Run multiple analyzers (Slither, Mythril, etc.)
+3.Compare their predictions with ground truth
+4.Compute:
+- Precision
+- Recall
+- F1-score
+5. Analyze which tool performs better.
+
+------------------------------------------------------------------------------
+
+======================================================
+Smart Contract Dataset
+        ↓
+Run Tool 1 (Slither)
+Run Tool 2 (Solhint / Mythril / Sailfish / etc.)
+        ↓
+Collect Findings
+        ↓
+Compare with Ground Truth
+        ↓
+Compute Precision / Recall / F1
+======================================================
+
+Label - 0x000000000000541e251335090ac5b47176af4f7e
