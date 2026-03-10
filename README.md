@@ -1,144 +1,144 @@
-The following metrics were computed:
+# Smart Contract Vulnerability Detection — Tool Evaluation Results
 
-- True Positives (TP)
-- False Positives (FP)
-- True Negatives (TN)
-- False Negatives (FN)
+This document summarizes the evaluation results of static analysis and symbolic execution tools for reentrancy vulnerability detection across two datasets: **SCRUBD/CD** (compiled dataset) and **SCRUBD/SD** (single dataset).
 
-# Tools Evaluated
+---
 
-The following smart contract analyzers were evaluated:
+## Dataset Overview
 
-| Tool | Type |
-|-----|-----|
-Slither | Static Analyzer |
-Mythril | Symbolic Execution |
-Solhint | Linter |
-Semgrep | Pattern-based static analysis |
-Aderyn | Static Analyzer |
+| Dataset   | RE = 1 (Vulnerable) | RE = 0 (Not Vulnerable) | Total |
+|-----------|--------------------:|------------------------:|------:|
+| SCRUBD/CD | 245                 | 501                     | 746   |
+| SCRUBD/SD | —                   | —                       | 242   |
 
-Some additional tools were investigated but could not be used:
+---
 
-| Tool | Reason |
-|----|----|
-Sailfish | Installation errors (Matplotlib dependency) |
-Manticore | Linux-only compatibility issue |
+## 1. Slither (Static Analysis)
 
-Precision = TP / (TP + FP)
-Recall = TP / (TP + FN)
-F1 Score = 2 * (Precision * Recall) / (Precision + Recall)
+### SCRUBD/CD
 
+> ⚠️ **Note:** The script is not counting FN correctly. Slither correctly detected 239 of 245 vulnerable functions, meaning FN = 245 − 239 = **6**, not 0.
 
-How to run: Example -
-python evaluate_slither_cd.py
-python evaluate_solhint_cd.py
-python evaluate_semgrep_cd.py
+| Metric      | Value   |
+|-------------|--------:|
+| Total       | 746     |
+| Compiled    | 743     |
+| Failed      | 3       |
+| TP          | 239     |
+| FP          | 504     |
+| TN          | 0       |
+| FN          | **6** *(script reports 0)* |
+| Precision   | 0.3217  |
+| Recall      | 1.0000  |
+| F1-Score    | 0.4868  |
 
+### SCRUBD/SD
 
+| Metric      | Value   |
+|-------------|--------:|
+| Compiled    | 240     |
+| Failed      | 2       |
+| TP          | 149     |
+| FP          | 89      |
+| TN          | 1       |
+| FN          | 1       |
+| Precision   | 0.6261  |
+| Recall      | 0.9933  |
+| F1-Score    | 0.7680  |
 
-# Results 
-## Slither on SCRUBD/CD
+---
 
-Dataset Ground-Truth
+## 2. Mythril (Symbolic Execution)
 
-RE = 1 → 245 functions
-RE = 0 → 501 functions
+> ⚠️ Mythril is significantly slower than Slither.
 
-===== FINAL RESULTS =====
-Total: 746
-Compiled: 743
-Failed: 3
-TP: 239
-FP: 504
-TN: 0
-FN: 0
-Precision: 0.32166890982503366
-Recall: 1.0
-F1-score: 0.48676171079429736
+**Relevant SWC Mappings:**
 
-Slither correctly detected
-239 of the 245 vulnerable functions
-FN = 245 − 239 = 6
-Script is not counting FN Correctly 
-My Results - 239 + 504 + 0 + 0 = 743
+| SWC ID  | Name                         | Severity |
+|---------|------------------------------|----------|
+| SWC-105 | Unprotected Ether Withdrawal | High     |
+| SWC-107 | Reentrancy                   | High     |
 
-## Slither on SCRUBD/SD
-===== FINAL RESULTS =====
-Compiled: 240
-Failed: 2
-TP: 149
-FP: 89
-TN: 1
-FN: 1
-Precision: 0.6260504201680672
-Recall: 0.9933333333333333
-F1-score: 0.768041237113402
+### SCRUBD/SD
 
+| Metric      | Value   |
+|-------------|--------:|
+| Processed   | 16      |
+| Failed      | 0       |
+| TP          | 6       |
+| FP          | 0       |
+| TN          | 0       |
+| FN          | 10      |
+| Precision   | 1.0000  |
+| Recall      | 0.3750  |
+| F1-Score    | 0.5455  |
 
+---
 
-## Mythril(symbolic execution)
-Mythril is much slower than slither 
-==== Unprotected Ether Withdrawal ====
-SWC ID: 105
-Severity: High
-Function: withdraw(uint256)
-Reentrancy Corresponds to  - 
-SW-105: Unprotected Ether Withdrawal
-SW-107: Reentrancy
+## 3. Solhint (Linter)
 
+### SCRUBD/CD
 
-## Solhint(linter) -  SCRUBD-CD
+| Metric      | Value   |
+|-------------|--------:|
+| Processed   | 469     |
+| Failed      | 0       |
+| TP          | 100     |
+| FP          | 98      |
+| TN          | 201     |
+| FN          | 70      |
+| Precision   | 0.5051  |
+| Recall      | 0.5882  |
+| F1-Score    | 0.5435  |
 
-===== FINAL RESULTS =====
-Processed: 469
-Failed: 0
-TP: 100
-FP: 98
-TN: 201
-FN: 70
-Precision: 0.5050505050505051
-Recall: 0.5882352941176471
-F1-score: 0.5434782608695652
+---
 
+## 4. Aderyn
 
-### Mythril - SCRUBD-SD
-==== FINAL RESULTS =====
-Processed: 16
-Failed: 0
-TP: 6
-FP: 0
-TN: 0
-FN: 10
-Precision: 1.0
-Recall: 0.375
-F1-score: 0.5454545454545454
+### SCRUBD/CD
 
-## Aderyn
+| Metric      | Value   |
+|-------------|--------:|
+| Processed   | 746     |
+| Failed      | 0       |
+| TP          | 0       |
+| FP          | 0       |
+| TN          | 507     |
+| FN          | 239     |
+| Precision   | 0.0000  |
+| Recall      | 0.0000  |
+| F1-Score    | 0.0000  |
 
-### SCRUBD-CD
+### SCRUBD/SD
 
-===== FINAL RESULTS =====
-Processed: 746
-Failed: 0
-TP: 0
-FP: 0
-TN: 507
-FN: 239
-Precision: 0
-Recall: 0.0
-F1-score: 0
+| Metric      | Value   |
+|-------------|--------:|
+| Processed   | 16      |
+| Failed      | 0       |
+| TP          | 0       |
+| FP          | 0       |
+| TN          | 0       |
+| FN          | 16      |
+| Precision   | 0.0000  |
+| Recall      | 0.0000  |
+| F1-Score    | 0.0000  |
 
-### SCRUBD-SD
+---
 
-===== FINAL RESULTS ===== 
-Processed: 16 
-Failed: 0 
-TP: 0
- FP: 0 
-TN: 0 
-FN: 16 
-Precision: 0 
-Recall: 0.0
-F1-score: 0
+## Summary Comparison
 
+### SCRUBD/CD
 
+| Tool    | Precision | Recall | F1-Score | TP  | FP  | TN  | FN      |
+|---------|----------:|-------:|---------:|----:|----:|----:|--------:|
+| Slither | 0.3217    | 1.0000 | 0.4868   | 239 | 504 | 0   | 6 *(bug)* |
+| Solhint | 0.5051    | 0.5882 | 0.5435   | 100 | 98  | 201 | 70      |
+| Aderyn  | 0.0000    | 0.0000 | 0.0000   | 0   | 0   | 507 | 239     |
+
+### SCRUBD/SD
+
+| Tool    | Precision | Recall | F1-Score | TP  | FP | TN | FN |
+|---------|----------:|-------:|---------:|----:|---:|---:|---:|
+| Slither | 0.6261    | 0.9933 | 0.7680   | 149 | 89 | 1  | 1  |
+| Mythril | 1.0000    | 0.3750 | 0.5455   | 6   | 0  | 0  | 10 |
+| Aderyn  | 0.0000    | 0.0000 | 0.0000   | 0   | 0  | 0  | 16 |
