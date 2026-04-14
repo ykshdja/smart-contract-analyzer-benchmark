@@ -1,114 +1,136 @@
+Dynamic analysis 
+| Tool      | Type                | Strength             |
+| --------- | ------------------- | -------------------- |
+| Echidna   | Fuzzing             | Break invariants     |
+| Mythril   | Symbolic Execution  | Path exploration     |
+| Manticore | Symbolic (advanced) | Custom analysis      |
+| Foundry   | Fuzz + Testing      | Dev-friendly         |
+| Tenderly  | Runtime             | Real-world debugging |
 
-Email -  1
-Create a tool to find vulnerabilities  in 
-Ethereum smart contracts 
-use Slither for it 
-read the research paper
------------------------------------------------------------------------------------
-Ethereum apps use smart contracts written in solidity
-These contracts can have bugs that can cause -
--money theft
--locked funds 
--logic exploits
+What I have worked on -
+- Mythril
+- Aderyn
+- Semgrep
+- Solhint 
 
-why Slither is a static analysis tool
-- reads solidity code
-- detects vulnerabilities
-- flags dangerous patterns 
------------------------------------------------------------------------------------
-what is a Smart contract?
-Program stored and executed on a blockchain that enforces agreemnents
-automatically.
-
-Smart Contract is essentially an agreement.
-- written in solidity
-- enforces automatically
-- trustless and transparent
-
-#Contract is deployed on the blockchain
-# user will intercat with it
+commands - 
+curl -X POST -F "file=@contract.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@test_inc.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@test-multicall.sol" http://127.0.0.1:8001/analyze
 
 
-WHAT HAPPENS WHEN YOU CALL A SMART Contract
+curl -X POST -F "file=@bug-cases.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@dot-pdf.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@c=onlyowner.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@sample.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@test.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@tool-fail.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@tool_fp_fn.sol" http://127.0.0.1:8001/analyze
 
-- you call Withdraw()
 
-1. Transaction Sent 
-2. validatore receives it  (Network node)
-3. Contract code executed 
-4. Result verified and Block Added.
+curl -X POST -F "file=@0x0a5a0a14419f9db1da68cf2f550720e5df49d4fe.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@0x0a5b38ac2d24c4fafc19ceb2591b70ece0d005d1.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@0x0a16d08b57afe4e0e323eba83e0282b07c2ed1f1.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@0x0a16d08b57afe4e0e323eba83e0282b07c2ed1f1.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@0x0a28dd8141394e6d680d20d54ffeb3544b576a78.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@0x0a42ef719ee77820993b27369089ae2c6bd6ced5.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@0x0aabf9daefcd484405479d2748cbaedb53c33d87.sol" http://127.0.0.1:8001/analyze
+curl -X POST -F "file=@0x0ac31bc80e6905bc27f3cdcb66dc38945f2055e2.sol" http://127.0.0.1:8001/analyze
 
-Ethereum uses Proof of Stake
 
-Validators must 
-- Stake ETH(Lock funds)
+curl -X POST -F "file=@contracts/test.sol" http://127.0.0.1:8001/analyze
 
------------------------------------------------------------------------------------
-1. what is a Transaction
-- It is a message that changes blockchain state.
 
-2. types of Transaction?
-- ETH transfer (To another wallet)
-- contract interaction
--- withdraw
--- swap tokens
--contract deployment 
---upload new smart contract
+0x0a5a0a14419f9db1da68cf2f550720e5df49d4fe.sol
 
-A Transaction contains 
-- sender address
-recipient address
-amount of ETH
-function call data
-gas limit
-gas price
-digital signature
------------------------------------------------------------------------------------
+semgrep --config=auto 0x0a5a0a14419f9db1da68cf2f550720e5df49d4fe.sol
 
-#TRANSAACTION LIFECYCLE 
-- user calls - withdraw(1 ETH)
-- user clicks  withdraw in wallet (MetaMask)
-- user signs Transaction (with private key)
--- this proves ownership
-- Transaction sent to ETH Network
--Validators verify
-- If Verified -> Transaction added to block
-- If Transaction calls a contract - Every validator executes the code.
-- Block chain is updated
-- Finalized Transaction becomes Immutable
+_______________________________________________________________________________________________________________________________________________
+Step 1: Make sure the backend server is running
+First, check if the backend server is running:
+curl -s http://127.0.0.1:8001/
+You should see: {"message":"Smart Contract Analyzer API"}
+If you don't see this response, you need to start the backend server first. You can do this with:
+cd backend
+python main.py
+Then keep that terminal window open.
+Step 2: Run the analysis scripts
+Option A: Using the API approach (recommended)
+python analyze_folder.py /path/to/your/solidity/files
+Option B: Using direct backend approach
+python analyze_folder_direct.py /path/to/your/solidity/files
+For your specific case, to analyze the contracts in your contracts folder:
+python analyze_folder.py contracts
+You should see output like:
+Found 2 .sol files
+Processed 1/2 files: test.sol
+Processed 2/2 files: context.sol
+Results saved to results.json
+Step 3: Compute metrics
+After running the analysis, compute the metrics:
+python compute_metrics.py
+This will output something like:
+Tool: semgrep
+Precision: 0.00
+Recall: 0.00
+F1: 0.00
+Tool: solhint
+Precision: 0.00
+Recall: 0.00
+F1: 0.00
+Tool: mythril
+Precision: 0.00
+Recall: 0.00
+F1: 0.00
 
------------------------------------------------------------------------------------
 
-Email - 2 
-- What we have done so far.
-1. Installed and ran slither 
-    report generated to report.json
-2. Extract that json and read it.
-3. understand smart contracts basics
 
-------------------------------------------------------------------------------
-1.Pick an existing labeled dataset (like SCRUBD or ScrawlD)
-2.Run multiple analyzers (Slither, Mythril, etc.)
-3.Compare their predictions with ground truth
-4.Compute:
-- Precision
-- Recall
-- F1-score
-5. Analyze which tool performs better.
+python analyze_folder.py 
 
-------------------------------------------------------------------------------
+python analyze_folder.py smart-contracts-analyzer/SCRUBD/SCRU
+BD-SD/data/solidity_codes
 
-======================================================
-Smart Contract Dataset
-        ↓
-Run Tool 1 (Slither)
-Run Tool 2 (Solhint / Mythril / Sailfish / etc.)
-        ↓
-Collect Findings
-        ↓
-Compare with Ground Truth
-        ↓
-Compute Precision / Recall / F1
-======================================================
+python analyze_folder.py smart-contracts-analyzer/SCRUBD/SCRUBD-CD/data/solidity_codes
 
-Label - 0x000000000000541e251335090ac5b47176af4f7e
+_________________________________________________________________________________________________________________________________
+To run correctly from your project directory:
+cd /Users/yashkhanduja/Documents/smart-contracts-analyzer
+# Run analysis
+python analyze_folder.py /Users/yashkhanduja/Documents/smart-contracts-analyzer/SCRUBD/SCRUBD-CD/data/solidity_codes
+# Compute metrics
+python compute_metrics.py
+
+USE THIS 
+python analyze_folder.py /Users/yashkhanduja/Documents/smart-contracts-analyzer/SCRUBD/SCRUBD-CD/data/solidity_codes
+
+_________________________________________________________________________________________________________________________________
+The backend is already running on port 8001.
+You can verify it's working:
+curl http://127.0.0.1:8001/
+Returns: {"message":"Smart Contract Analyzer API"}
+To start/stop manually:
+# Start backend (from project directory)
+cd /Users/yashkhanduja/Documents/smart-contracts-analyzer
+uvicorn backend.main:app --host 127.0.0.1 --port 8001
+# Or run in background
+nohup uvicorn backend.main:app --host 127.0.0.1 --port 8001 > backend/server.log 2>&1 &
+# Stop backend
+pkill -f "uvicorn backend.main:app"
+
+
+_________________________________________________________________________________________________________________________________
+WHEN THE SERVER IS NOT WORKING / LOCAL HOST REFUSE TO CONNECT
+
+# Check frontend server
+$ lsof -i :3000 | grep LISTEN
+# Start frontend server
+$ cd /Users/yashkhanduja/Documents/smart-contracts-analyzer/frontend && nohup python3 -m http.server 3000 > /tmp/frontend.log 2>&1 &
+Thinking: The user should now be able to access the frontend at localhost:3000. Let me also make sure the backend is running.
+# Check backend
+$ sleep 1 && curl -s http://localhost:8000/
+{"message":"Smart Contract Analyzer API"}
+Thinking: Backend is running. Frontend should be running too now.
+Done. Refresh http://localhost:3000 - both backend and frontend are running.
+
+
+

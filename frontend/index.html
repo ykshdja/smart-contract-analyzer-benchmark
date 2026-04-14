@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Contract Analyzer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Lucida Console', Monaco, monospace; font-size: 18px; color: #111; background-color: white; max-width: 1200px; margin: 0 auto; padding: 0 50px; }
+        .landing { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }
+        h1 { font-size: 2.5rem; margin-bottom: 2rem; letter-spacing: -2px; }
+        .subtitle { color: #888; margin-bottom: 3rem; font-size: 1rem; }
+        .upload-area { border: 2px dashed #111; padding: 3rem; margin-bottom: 2rem; cursor: pointer; transition: background 0.2s; }
+        .upload-area:hover { background: #f5f5f5; }
+        .upload-area input[type="file"] { display: none; }
+        .upload-text { font-size: 1.2rem; }
+        .file-name { margin-top: 1rem; color: #888; }
+        .btn { padding: 1rem 2rem; background: #111; color: white; border: none; font-family: inherit; font-size: 1rem; cursor: pointer; margin-top: 1rem; }
+        .btn:hover { background: #333; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-orange { background: orange; color: #111; }
+        .btn-orange:hover { background: #ff8c00; }
+        hr { border: none; height: 2px; background-color: #ddd; width: 100%; margin: 2rem auto; }
+        
+        .tool-section { padding: 1rem 0; border-bottom: 1px solid #eee; }
+        .filename { color: orange; margin-bottom: 1rem; font-weight: bold; }
+        
+        .loading { color: #888; padding: 2rem; }
+        .error { color: #ff4444; padding: 2rem; }
+    </style>
+</head>
+<body>
+    <div class="landing">
+        <h1>Smart Contract Analyzer</h1>
+        <p class="subtitle">Analyze Solidity smart contracts for vulnerabilities</p>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" accept=".sol" onchange="handleFileSelect(event)">
+            <p class="upload-text" id="uploadText">Click to upload a .sol file</p>
+            <p class="file-name" id="fileName"></p>
+        </div>
+        
+        <button class="btn btn-orange" id="analyzeBtn" onclick="analyzeFile()" disabled>Analyze</button>
+        
+        <hr>
+        
+        <div id="results" style="display: none; text-align: left; width: 100%;">
+        </div>
+        
+        <div id="placeholder">
+            <p style="color: #888;">Upload a file to see analysis results...</p>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let isAnalyzing = false;
+        let analysisData = null;
+
+        const VULN_RISK_FIX = {
+            "reentrancy": { risk: "HIGH", fix: "Use checks-effects-interactions pattern or reentrancy guard" },
+            "delegatecall": { risk: "HIGH", fix: "Avoid delegatecall with untrusted contracts" },
+            "unhandled_exception": { risk: "MEDIUM", fix: "Check return values of low-level calls" },
+            "tx_origin": { risk: "MEDIUM", fix: "Use msg.sender instead of tx.origin for authorization" },
+            "timestamp_dependency": { risk: "LOW", fix: "Avoid timestamp dependence for critical logic" },
+            "assembly_usage": { risk: "MEDIUM", fix: "Review assembly code carefully" },
+            "solidity_version_old": { risk: "HIGH", fix: "Upgrade to Solidity 0.8.0 or higher" },
+            "low_level_calls": { risk: "MEDIUM", fix: "Handle errors for low-level calls properly" },
+            "overflow": { risk: "HIGH", fix: "Use SafeMath or Solidity 0.8+ with checked arithmetic" },
+            "unchecked-send": { risk: "MEDIUM", fix: "Check return value of send calls" },
+            "deprecated-standards": { risk: "LOW", fix: "Replace 'throw' with 'revert()'" },
+            "incorrect-equality": { risk: "MEDIUM", fix: "Use '>' or '<' instead of '==' for balance checks" },
+            "shadowing-state": { risk: "LOW", fix: "Use different variable names to avoid shadowing" },
+            "naming-convention": { risk: "LOW", fix: "Follow Solidity naming conventions (CapWords)" },
+            "solc-version": { risk: "LOW", fix: "Use newer Solidity version (>= 0.8.0)" },
+            "missing_visibility": { risk: "HIGH", fix: "explicitly set function visibility" },
+            "deprecated": { risk: "LOW", fix: "Replace deprecated constructs" }
+        };
+
+        const RISK_COLORS = {
+            "HIGH": "#ff4444",
+            "MEDIUM": "#ff8800",
+            "LOW": "#888888"
+        };
+
+        function mergeConsecutiveLines(lines) {
+            if (!lines || lines.length === 0) return [];
+            const sorted = [...lines].sort((a, b) => a - b);
+            const ranges = [];
+            let start = sorted[0];
+            let end = sorted[0];
+            for (let i = 1; i < sorted.length; i++) {
+                if (sorted[i] === end + 1) {
+                    end = sorted[i];
+                } else {
+                    ranges.push(start === end ? start : `${start}–${end}`);
+                    start = sorted[i];
+                    end = sorted[i];
+                }
+            }
+            ranges.push(start === end ? start : `${start}–${end}`);
+            return ranges;
+        }
+
+        function expandLocations(btn, lines) {
+            var display = lines.map(function(l) { return 'Line ' + l; }).join(', ');
+            btn.parentElement.innerHTML = 'Locations: ' + display;
+        }
+
+        function expandVulnTypes(btn, toolName) {
+            var section = document.getElementById('vuln-section-' + toolName);
+            var isExpanded = section.dataset.expanded === 'true';
+            section.dataset.expanded = isExpanded ? 'false' : 'true';
+            renderVulnSection(toolName, section, !isExpanded);
+        }
+
+        function renderVulnSection(toolName, container, expanded) {
+            var toolData = window._toolDataCache && window._toolDataCache[toolName];
+            if (!toolData) return;
+            
+            var vulns = toolData.vulnerabilities || [];
+            var vulnGroups = {};
+            vulns.forEach(function(v) {
+                if (!vulnGroups[v.type]) vulnGroups[v.type] = [];
+                vulnGroups[v.type].push(v.line);
+            });
+            
+            var riskOrder = { 'HIGH': 0, 'MEDIUM': 1, 'LOW': 2 };
+            var vulnList = Object.keys(vulnGroups).map(function(vulnType) {
+                var lines = vulnGroups[vulnType].filter(function(l) { return l != null; });
+                var riskInfo = VULN_RISK_FIX[vulnType] || { risk: "MEDIUM", fix: "Review and fix" };
+                return { type: vulnType, lines: lines, count: lines.length, risk: riskInfo.risk, fix: riskInfo.fix };
+            });
+            
+            vulnList.sort(function(a, b) {
+                var riskDiff = (riskOrder[a.risk] || 1) - (riskOrder[b.risk] || 1);
+                if (riskDiff !== 0) return riskDiff;
+                return b.count - a.count;
+            });
+            
+            var totalTypes = vulnList.length;
+            var displayTypes = expanded ? totalTypes : Math.min(2, totalTypes);
+            var html = '';
+            
+            for (var i = 0; i < displayTypes; i++) {
+                var v = vulnList[i];
+                var riskColor = RISK_COLORS[v.risk] || '#888';
+                var locationsStr = mergeConsecutiveLines(v.lines).map(function(l) { return 'Line ' + l; }).join(', ');
+                html += '<div style="margin-bottom: 0.75rem; padding: 0.5rem; background: #fff; border-left: 3px solid ' + riskColor + ';">';
+                html += '<div style="font-weight: bold; font-size: 0.9rem;">' + v.type + ' (' + v.count + ' issues)</div>';
+                html += '<div style="font-size: 0.8rem; color: #666; margin-bottom: 0.25rem;">Risk: <span style="color: ' + riskColor + '; font-weight: bold;">' + v.risk + '</span></div>';
+                html += '<div style="font-size: 0.8rem; color: #888; margin-bottom: 0.25rem;">' + locationsStr + '</div>';
+                html += '<div style="font-size: 0.8rem; color: #666; font-style: italic;">Fix: ' + v.fix + '</div>';
+                html += '</div>';
+            }
+            
+            if (totalTypes > 2) {
+                var isExpanded = expanded || container.dataset.expanded === 'true';
+                html += '<div style="color: #111; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="expandVulnTypes(this, \'' + toolName + '\')">' + (isExpanded ? '[- Show less]' : '[+ ' + (totalTypes - 2) + ' more types]') + '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function formatToolResult(toolName, toolData) {
+            if (!toolData) return '';
+            if (!window._toolDataCache) window._toolDataCache = {};
+            window._toolDataCache[toolName] = toolData;
+            
+            if (toolData.status === 'not_available') {
+                return '<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9f9f9; border-left: 3px solid orange;"><b>' + toolName + '</b> → <span style="color: orange;">Not Available</span></div>';
+            }
+            if (toolData.status === 'error' || toolData.status === 'timeout') {
+                return '<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9f9f9; border-left: 3px solid orange;"><b>' + toolName + '</b> → <span style="color: orange;">' + toolData.status + '</span></div>';
+            }
+            if (toolData.count === 0) {
+                return '<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9f9f9; border-left: 3px solid #ccc;"><b>' + toolName + '</b> → <span style="color: #888;">Not Detected</span></div>';
+            }
+            
+            return '<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9f9f9; border-left: 3px solid #111;">' +
+                '<div style="font-weight: bold; margin-bottom: 0.5rem;"><b>' + toolName + '</b> → ' + toolData.count + ' Issues</div>' +
+                '<div id="vuln-section-' + toolName + '" data-expanded="false" data-toolname="' + toolName + '"></div></div>';
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                if (!file.name.endsWith('.sol')) {
+                    alert('Please select a .sol file');
+                    event.target.value = '';
+                    return;
+                }
+                selectedFile = file;
+                document.getElementById('uploadText').textContent = file.name;
+                document.getElementById('fileName').textContent = `${(file.size / 1024).toFixed(1)} KB`;
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            const resultsContainer = document.getElementById('results');
+            const placeholder = document.getElementById('placeholder');
+            
+            resultsContainer.innerHTML = '';
+            
+            const filenameDiv = document.createElement('p');
+            filenameDiv.className = 'filename';
+            filenameDiv.textContent = data.contract_name;
+            resultsContainer.appendChild(filenameDiv);
+            
+            const columnsContainer = document.createElement('div');
+            columnsContainer.style.display = 'flex';
+            columnsContainer.style.gap = '2rem';
+            columnsContainer.style.flexWrap = 'wrap';
+            
+            const staticColumn = document.createElement('div');
+            staticColumn.style.flex = '1';
+            staticColumn.style.minWidth = '300px';
+            
+            const staticTitle = document.createElement('h2');
+            staticTitle.style.marginBottom = '1rem';
+            staticTitle.style.paddingBottom = '0.5rem';
+            staticTitle.style.borderBottom = '2px solid #111';
+            staticTitle.textContent = 'Static Analysis';
+            staticColumn.appendChild(staticTitle);
+            
+            const dynamicColumn = document.createElement('div');
+            dynamicColumn.style.flex = '1';
+            dynamicColumn.style.minWidth = '300px';
+            
+            const dynamicTitle = document.createElement('h2');
+            dynamicTitle.style.marginBottom = '1rem';
+            dynamicTitle.style.paddingBottom = '0.5rem';
+            dynamicTitle.style.borderBottom = '2px solid #111';
+            dynamicTitle.textContent = 'Dynamic Analysis';
+            dynamicColumn.appendChild(dynamicTitle);
+            
+            const staticTools = ['mythril', 'slither', 'semgrep', 'solhint', 'aderyn'];
+            for (const toolName of staticTools) {
+                const toolData = data.results[toolName];
+                if (!toolData) continue;
+                
+                const toolSection = document.createElement('div');
+                toolSection.className = 'tool-section';
+                toolSection.style.marginBottom = '1rem';
+                toolSection.innerHTML = formatToolResult(toolName, toolData);
+                staticColumn.appendChild(toolSection);
+            }
+            
+            if (data.results.echidna) {
+                const echidnaData = data.results.echidna;
+                let statusHtml = '';
+                if (echidnaData.status === 'passed') {
+                    statusHtml = `Echidna → <span style="color: green;">Passed</span>`;
+                } else if (echidnaData.status === 'failed') {
+                    statusHtml = `Echidna → <span style="color: red;">Failed</span>`;
+                } else if (echidnaData.status === 'not_available') {
+                    statusHtml = `Echidna → <span style="color: orange;">Not Available</span>`;
+                } else if (echidnaData.status === 'error') {
+                    statusHtml = `Echidna → <span style="color: orange;">Error</span>`;
+                } else {
+                    statusHtml = `Echidna → <span style="color: #888;">${echidnaData.status}</span>`;
+                }
+                
+                const echidnaSection = document.createElement('div');
+                echidnaSection.className = 'tool-section';
+                echidnaSection.style.marginBottom = '1rem';
+                echidnaSection.innerHTML = `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9f9f9; border-left: 3px solid #888;">
+                    <div style="font-weight: bold; margin-bottom: 0.25rem;">${statusHtml}</div>
+                    <div style="font-size: 0.85rem; color: #888;">${echidnaData.reason || ''}</div>
+                </div>`;
+                dynamicColumn.appendChild(echidnaSection);
+            }
+            
+            if (data.dynamic_analysis) {
+                const execTitle = data.dynamic_analysis.status === 'safe' 
+                    ? `Execution Analysis → <span style="color: green;">Safe</span>`
+                    : `Execution Analysis → <span style="color: red;">Potential Risk</span>`;
+                
+                const dynamicSection = document.createElement('div');
+                dynamicSection.className = 'tool-section';
+                dynamicSection.style.marginBottom = '1rem';
+                dynamicSection.innerHTML = `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9f9f9; border-left: 3px solid ${data.dynamic_analysis.status === 'safe' ? '#888' : '#ff4444'};">
+                    <div style="font-weight: bold; margin-bottom: 0.25rem;">${execTitle}</div>
+                    <div style="font-size: 0.85rem; color: #888;">${data.dynamic_analysis.reason || ''}</div>
+                </div>`;
+                dynamicColumn.appendChild(dynamicSection);
+            }
+            
+            columnsContainer.appendChild(staticColumn);
+            columnsContainer.appendChild(dynamicColumn);
+            resultsContainer.appendChild(columnsContainer);
+            
+            // Render vuln sections for each tool
+            var toolsToRender = ['mythril', 'slither', 'semgrep', 'solhint'];
+            toolsToRender.forEach(function(toolName) {
+                var section = document.getElementById('vuln-section-' + toolName);
+                if (section) {
+                    renderVulnSection(toolName, section, false);
+                }
+            });
+            
+            placeholder.style.display = 'none';
+            resultsContainer.style.display = 'block';
+        }
+
+        async function analyzeFile() {
+            if (isAnalyzing) return;
+            
+            const btn = document.getElementById('analyzeBtn');
+            const resultsDiv = document.getElementById('results');
+            const placeholder = document.getElementById('placeholder');
+            
+            if (!selectedFile) {
+                return;
+            }
+            
+            isAnalyzing = true;
+            btn.disabled = true;
+            placeholder.innerHTML = '<p class="loading">Analyzing with all tools...</p>';
+            resultsDiv.style.display = 'none';
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                
+                const response = await fetch('http://localhost:8000/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    placeholder.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                } else {
+                    analysisData = data;
+                    displayResults(data);
+                }
+            } catch (err) {
+                placeholder.innerHTML = `<p class="error">Error: ${err.message}<br>Make sure the backend server is running.</p>`;
+            }
+            
+            isAnalyzing = false;
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>
