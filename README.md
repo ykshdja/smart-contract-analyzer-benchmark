@@ -53,7 +53,7 @@ Open `frontend/index.html` in your browser (or serve it with any static file ser
 └── frontend/
     └── index.html     # Simple UI
 ```
-## -----------------------------------------------------------------------------------------
+## ---------------------------------------------------------------------------------------
 
 ## New Potential- Project Structure
 ```
@@ -163,11 +163,9 @@ smart-contract-analyzer/
 └── run.py                           # Convenience script to start both backend & frontend
 
 
-
-
 ```
 
-
+<img width="6657" height="3623" alt="smart-contract-analyzer-diagram" src="https://github.com/user-attachments/assets/4c79f2fc-aa96-4fe0-afd2-5038e95c50c0" />
 
 
 
