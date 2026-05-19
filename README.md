@@ -53,7 +53,7 @@ Open `frontend/index.html` in your browser (or serve it with any static file ser
 └── frontend/
     └── index.html     # Simple UI
 ```
-## --------------------------------------------------------------
+
 
 ## New Potential- Project Structure
 ```
